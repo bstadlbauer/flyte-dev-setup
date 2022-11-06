@@ -1,3 +1,2 @@
 image:
-  name: dask-operator-local
-  tag: latest
+  tag: 2022.10.1
