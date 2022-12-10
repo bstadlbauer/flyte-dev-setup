@@ -1,7 +1,9 @@
 FLYTE_ADMIN_URL = "dns:///localhost"
 
-
 DASK_HELM_REPO = dask/dask-kubernetes-operator
+DASK_CHART_VERSION = "2022.12.0"
+
+FLYTE_CHART_VERSION = "v1.2.1"
 
 # Only required for local dask deployment
 #DASK_HELM_REPO = "${HOME}/workspace/bstadlbauer/dask-kubernetes/dask_kubernetes/operator/deployment/helm/dask-kubernetes-operator/"
@@ -21,7 +23,7 @@ update-helm-repos:
 
 .PHONY: helm-upgrade-flyte
 helm-upgrade-flyte: update-helm-repos
-	helm upgrade --install -n flyte --create-namespace flyte -f deployment/flyte/values.yaml flyte/flyte --wait
+	helm upgrade --install -n flyte --create-namespace flyte -f deployment/flyte/values.yaml flyte/flyte --version ${FLYTE_CHART_VERSION} --wait
 
 .PHONY: add-dask-helm-repo
 add-dask-helm-repo:
@@ -41,7 +43,7 @@ helm-upgrade-dask-operator: add-dask-helm-repo update-helm-repos# build-local-da
 	kubectl delete crd daskworkergroups.kubernetes.dask.org || true
 	kubectl delete crd daskautoscalers.kubernetes.dask.org || true
 	# helm install -n dask --create-namespace dask -f deployment/dask/values.yaml ${DASK_HELM_REPO} --wait  # Only required for local dask deployment
-	helm install -n dask --create-namespace dask ${DASK_HELM_REPO} --wait
+	helm install -n dask --create-namespace dask ${DASK_HELM_REPO} --version ${DASK_CHART_VERSION} --wait
 
 .PHONY: create-flyte-project
 create-flyte-project:
