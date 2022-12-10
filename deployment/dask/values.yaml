@@ -1,2 +1,4 @@
+# Only required for local dask deployment
 image:
-  tag: 2022.10.1
+  name: dask-operator-local
+  tag: latest

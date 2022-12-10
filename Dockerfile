@@ -19,3 +19,4 @@ RUN echo '#!/bin/bash\n/usr/local/bin/aws --endpoint-url http://minio.flyte.svc.
 ENV PATH="/usr/bin:$PATH"
 ENV AWS_ACCESS_KEY_ID=minio
 ENV AWS_SECRET_ACCESS_KEY=miniostorage
+ENV PYTHONPATH="/root":$PYTHONPATH
