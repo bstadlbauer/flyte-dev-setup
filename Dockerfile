@@ -9,8 +9,11 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements.txt
 
+RUN pip install "bokeh>=2.1.1,<3"
+
 # FIXME: Move up again
 COPY setup.py .
+COPY README.md .
 COPY flytekitplugins/ ./flytekitplugins
 RUN pip install . --no-deps
 
