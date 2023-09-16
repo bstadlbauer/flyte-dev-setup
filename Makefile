@@ -1,85 +1,65 @@
-FLYTE_ADMIN_URL = "dns:///localhost"
+export FLYTECTL_CONFIG=/Users/bstadlbauer/.flyte/config-sandbox.yaml
 
-DASK_HELM_REPO = dask/dask-kubernetes-operator
-DASK_CHART_VERSION = "2022.12.0"
+FLYTE_PROJECT = "dask-testing"
 
-FLYTE_CHART_VERSION = "v1.2.1"
+.PHONY: test-helm
+test-helm:
+	@which helm > /dev/null || { echo '\033[0;31mCould not find the 'helm' binary. Please make sure that it is installed.\033[0m'; exit 1; }
 
-# Only required for local dask deployment
-#DASK_HELM_REPO = "${HOME}/workspace/bstadlbauer/dask-kubernetes/dask_kubernetes/operator/deployment/helm/dask-kubernetes-operator/"
-#DASK_DOCKERFILE = "${HOME}/workspace/bstadlbauer/dask-kubernetes/dask_kubernetes/operator/deployment/Dockerfile"
-#DASK_DOCKER_BUILD_CONTEXT = "${HOME}/workspace/bstadlbauer/dask-kubernetes/"
+.PHONY: test-kubectl
+test-kubectl:
+	@which kubectl > /dev/null || { echo '\033[0;31mCould not find the 'kubectl' binary. Please make sure that it is installed.\033[0m'; exit 1; }
 
-WORKFLOW_DOCKERFILE_BUILD_CONTEXT = "${HOME}/workspace/bstadlbauer/flytekit/plugins/flytekit-dask"
+.PHONY: test-flytectl
+test-flytectl:
+	@which kubectl > /dev/null || { echo '\033[0;31mCould not find the 'kubectl' binary. Please make sure that it is installed.\033[0m'; exit 1; }
 
-WORKFLOW_VERSION = $(shell date +%F-%H-%M-%S)
-# Assign version to make sure it does not change again
-WORKFLOW_VERSION := ${WORKFLOW_VERSION}
-WORKFLOW_DOCKER_IMAGE = dask-plugin-dev:${WORKFLOW_VERSION}
-
-.PHONY: update-helm-repos
-update-helm-repos:
-	helm repo update
-
-.PHONY: helm-upgrade-flyte
-helm-upgrade-flyte: update-helm-repos
-	helm upgrade --install -n flyte --create-namespace flyte -f deployment/flyte/values.yaml flyte/flyte --version ${FLYTE_CHART_VERSION} --wait
+.PHONY: start-flyte-dev-cluster
+start-flyte-dev-cluster: test-flytectl
+	flytectl demo start --dev
 
 .PHONY: add-dask-helm-repo
 add-dask-helm-repo:
 	helm repo add dask https://helm.dask.org
 
-# Only required for local dask deployment
-#.PHONY: build-local-dask-image
-#build-local-dask-image:
-#	docker build -t dask-operator-local:latest -f ${DASK_DOCKERFILE} ${DASK_DOCKER_BUILD_CONTEXT}
+.PHONY: update-helm-repos
+update-helm-repos:
+	helm repo update
 
-.PHONY: helm-upgrade-dask-operator
-helm-upgrade-dask-operator: add-dask-helm-repo update-helm-repos# build-local-dask-image # Only required for local dask deployment
-	# Removing everything to make sure CRDs are correct
-	helm uninstall -n dask dask || true
-	kubectl delete crd daskclusters.kubernetes.dask.org || true
-	kubectl delete crd daskjobs.kubernetes.dask.org || true
-	kubectl delete crd daskworkergroups.kubernetes.dask.org || true
-	kubectl delete crd daskautoscalers.kubernetes.dask.org || true
-	# helm install -n dask --create-namespace dask -f deployment/dask/values.yaml ${DASK_HELM_REPO} --wait  # Only required for local dask deployment
-	helm install -n dask --create-namespace dask ${DASK_HELM_REPO} --version ${DASK_CHART_VERSION} --wait
+.PHONY: deploy-dask-operator
+deploy-dask-operator: add-dask-helm-repo update-helm-repos
+	helm install --create-namespace -n dask-operator dask-operator dask/dask-kubernetes-operator --wait
 
-.PHONY: create-flyte-project
-create-flyte-project:
-	cd /Users/bstadlbauer/go/src/github.com/flyteorg/flytectl \
-	&& ./bin/flytectl create project --id dask-plugin --name "Dask plugin" --description "Project for dask plugin development" || true
+.PHONY: check-flyte-is-up
+check-flyte-is-up:
+	@if ! wget -q --spider http://localhost:30080; then \
+		read -p "It seems like Flyte is not up yet, please make sure that you start the single binary and press Enter once done" -n 1 -r; \
+	fi
 
-.PHONY: initial-setup
-initial-setup: helm-upgrade-flyte helm-upgrade-dask-operator create-flyte-project
+.PHONY: create-dask-project
+create-dask-project: test-flytectl check-flyte-is-up
+	flytectl create project --id ${FLYTE_PROJECT} --name dask-e2e --description "Dask E2E" || true
+
+.PHONY: create-dask-namespace
+create-dask-namespace:
+	kubectl create namespace ${FLYTE_PROJECT}-development || true
+
+.PHONY: setup
+setup: start-flyte-dev-cluster deploy-dask-operator create-dask-project create-dask-namespace
+
+.PHONY: teardown
+teardown: test-flytectl
+	flytectl demo teardown
 
 .PHONY: build
 build:
-	docker build -t ${WORKFLOW_DOCKER_IMAGE} -f ./Dockerfile ${WORKFLOW_DOCKERFILE_BUILD_CONTEXT}
+	docker build -t ${FLYTE_PROJECT}:dev -f docker/Dockerfile .
 
 .PHONY: run
 run: build
-	docker run -it --rm ${WORKFLOW_DOCKER_IMAGE} /bin/bash
+	docker run -it --rm --entrypoint /bin/bash ${FLYTE_PROJECT}:dev
 
-.PHONY: serialize
-serialize: build
-	rm -rf ./workflows
-	mkdir workflows
-	docker run \
-		--rm \
-		-v /Users/bstadlbauer/workspace/bstadlbauer/flyte-dev-setup/demo_workflows/:/src/demo \
-		-v /Users/bstadlbauer/workspace/bstadlbauer/flyte-dev-setup/workflows:/src/workflows \
-		--workdir /src \
-	    ${WORKFLOW_DOCKER_IMAGE} \
-	    pyflyte --pkgs demo package --fast --image ${WORKFLOW_DOCKER_IMAGE} -o /src/workflows/flyte-package.tgz
-	tar zxvf ./workflows/flyte-package.tgz -C ./workflows/
-	rm ./workflows/flyte-package.tgz
-
-# FIXME: This is super strange! Will only work in the flytectl directory
-.PHONY: register
-register: serialize
-	cd /Users/bstadlbauer/go/src/github.com/flyteorg/flytectl \
-	&& ./bin/flytectl -p dask-plugin -d development register files --version ${WORKFLOW_VERSION} /Users/bstadlbauer/workspace/bstadlbauer/flyte-dev-setup/workflows/*
-
-.PHONY: setup
-setup: initial-setup build register
+.PHONY: push
+push: build
+	docker tag ${FLYTE_PROJECT}:dev localhost:30000/${FLYTE_PROJECT}:dev
+	docker push localhost:30000/${FLYTE_PROJECT}:dev

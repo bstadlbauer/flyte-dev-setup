@@ -1,4 +1,0 @@
-# Only required for local dask deployment
-image:
-  name: dask-operator-local
-  tag: latest

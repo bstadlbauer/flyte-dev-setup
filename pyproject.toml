@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "flyte-dev-setup"
+version = "0.1.0"
+description = ""
+authors = ["Bernhard Stadlbauer <11799671+bstadlbauer@users.noreply.github.com>"]
+readme = "README.md"
+packages = [{include = "flyte_dev_setup"}]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.12"
+dask = "^2023.7.0"
+dask-kubernetes = "^2023.7.2"
+
+[tool.poetry.group.dev.dependencies]
+flytekit = "^1.8.0"
+flytekitplugins-dask = "^1.8.1"
+pytest = "^7.4.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
