@@ -61,7 +61,6 @@ def register_workflows(
         ],
         check=True,
     )
-    # FIXME: Pull out into constants
     subprocess.run(
         [
             "flytectl",
