@@ -2,21 +2,21 @@
 import pytest
 from flytekit.remote import FlyteWorkflow, FlyteRemote
 
-from flyte_dev_setup.workflows import do_nothing_workflow
+from flyte_dev_setup.workflows import dask_test_workflow
 
 
 @pytest.fixture
-def demo_workflow(
+def dask_workflow_fixture(
     flyte_version: str, flyte_remote: FlyteRemote, register_workflows: None
 ) -> FlyteWorkflow:
-    workflow_name = f"{do_nothing_workflow.__module__}.{do_nothing_workflow.__name__}"
+    workflow_name = f"{dask_test_workflow.__module__}.{dask_test_workflow.__name__}"
     workflow = flyte_remote.fetch_workflow(name=workflow_name, version=flyte_version)
     return workflow
 
 
-def test_dask_cluster(demo_workflow: FlyteWorkflow, flyte_remote: FlyteRemote):
+def test_dask_cluster(dask_workflow_fixture: FlyteWorkflow, flyte_remote: FlyteRemote):
     execution = flyte_remote.execute_remote_wf(
-        demo_workflow,
+        dask_workflow_fixture,
         inputs={},
         wait=True,
     )
