@@ -1,5 +1,6 @@
 """End-to-end tests for the Dask plugin."""
 import pytest
+from flytekit import WorkflowExecutionPhase
 from flytekit.remote import FlyteWorkflow, FlyteRemote
 
 from flyte_dev_setup.workflows import dask_test_workflow
@@ -22,3 +23,4 @@ def test_dask_cluster(dask_workflow_fixture: FlyteWorkflow, flyte_remote: FlyteR
     )
     assert execution is not None
     assert execution.error is None
+    assert execution.closure.phase == WorkflowExecutionPhase.SUCCEEDED
